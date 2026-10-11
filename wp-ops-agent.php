@@ -55,7 +55,7 @@ function wpoa_admin_page_callback() {
         FROM $wpdb->options
         WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')
         ORDER BY size_kb DESC
-        LIMIT 5
+        LIMIT 20
     " );
 
     $total_size_kb = array_sum( wp_list_pluck( $largest_autoloaded_options, 'size_kb' ) );
