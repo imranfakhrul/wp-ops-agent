@@ -49,7 +49,7 @@ function wpoa_admin_page_callback() {
     // Count the number of autoloaded options in the database.
     $autoload_option_count = $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->options WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')" );
 
-    // Calculate the total size of autoloaded options in kilobytes.
+    // Calculate the stored option-value size in kibibytes (1 KiB = 1,024 bytes).
     $autoload_option_size = $wpdb->get_var( "SELECT SUM(LENGTH(option_value)) FROM $wpdb->options WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')" );
     
     $total_size_kb = round( $autoload_option_size / 1024, 2 );
@@ -78,8 +78,8 @@ function wpoa_admin_page_callback() {
                         <td><?php echo esc_html( number_format_i18n( $autoload_option_count ) ); ?></td>
                     </tr>
                     <tr>
-                        <td><strong>Combined Size</strong></td>
-                        <td><?php echo esc_html( number_format_i18n( $total_size_kb, 2 ) ); ?> KB</td>
+                        <td><strong>Combined Stored Value Size</strong></td>
+                        <td><?php echo esc_html( number_format_i18n( $total_size_kb, 2 ) ); ?> KiB</td>
                     </tr>
                 </tbody>
             </table>
@@ -92,7 +92,7 @@ function wpoa_admin_page_callback() {
                         <tr>
                             <th style="width: 60%;"><strong>Option Name</strong></th>
                             <th style="width: 20%;"><strong>Autoload Status</strong></th>
-                            <th style="width: 20%;"><strong>Size (KB)</strong></th>
+                            <th style="width: 20%;"><strong>Size (KiB)</strong></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -104,7 +104,7 @@ function wpoa_admin_page_callback() {
                                         <?php echo esc_html( $option->autoload ); ?>
                                     </span>
                                 </td>
-                                <td><?php echo esc_html( number_format_i18n( $option->size_kb, 2 ) ); ?> KB</td>
+                                <td><?php echo esc_html( number_format_i18n( $option->size_kb, 2 ) ); ?> KiB</td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
