@@ -5,13 +5,13 @@ A lightweight, performance-focused WordPress diagnostic plugin that analyzes and
 ## Features
 * **Autoload Overview:** Tracks the total number of configuration options loaded into memory on every single page request.
 * **Size Calculation:** Computes the aggregate **stored option-value size** directly inside the database engine for maximum efficiency.
-* **Heavyweight Identifier:** Displays a table highlighting the top 5 largest autoloaded items along with their modern Core handling status (`yes`, `on`, `auto`).
+* **Heavyweight Identifier:** Displays a table highlighting the top 20 largest autoloaded items along with their modern Core handling status (`yes`, `on`, `auto`).
 
 ---
 
 ## Quick Start (Local Development via Docker)
 
-To spun up your local environment quickly using Docker Compose, navigate to your root project directory containing your setup configurations and execute:
+To spin up your local environment quickly using Docker Compose, navigate to your root project directory containing your setup configurations and execute:
 
 ```bash
 docker compose up -d
@@ -19,9 +19,8 @@ docker compose up -d
 
 Once the containers initialize, open your web browser and navigate to your local dashboard address:
 ```text
-http://localhost/wp-admin/
+http://localhost:8080/wp-admin/
 ```
-*(Note: If your local setup utilizes a different proxy configuration or specified port binding like `http://localhost:8080`, adjust your destination link accordingly.)*
 
 Log into your local administration dashboard, navigate to **Plugins**, and activate **WP Ops Agent**.
 
