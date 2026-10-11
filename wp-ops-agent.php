@@ -7,7 +7,7 @@
  * Version: 1.0.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
- * Author: Md Fakhrul Islam
+ * Author: Md. Fakhrul Islam
  * Author URI: https://mdfakhrulislam.com/
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -54,12 +54,12 @@ function wpoa_admin_page_callback() {
     
     $total_size_kb = round( $autoload_option_size / 1024, 2 );
 
-    // Fetch the top 5 largest autoloaded options.
+    // Fetch the top 20 largest autoloaded options.
     $largest_autoloaded_options = $wpdb->get_results( "
         SELECT option_name, autoload, ROUND(LENGTH(option_value) / 1024, 2) as size_kb
         FROM $wpdb->options
         WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')
-        ORDER BY size_kb DESC
+        ORDER BY LENGTH(option_value) DESC
         LIMIT 20
     " );
 
@@ -84,8 +84,8 @@ function wpoa_admin_page_callback() {
                 </tbody>
             </table>
 
-            <!-- Top 5 Largest Options Table -->
-            <h2 style="margin-top: 30px;">Top 5 Largest Autoloaded Options</h2>
+            <!-- Top 20 Largest Options Table -->
+            <h2 style="margin-top: 30px;">Top 20 Largest Autoloaded Options</h2>
             <?php if ( ! empty( $largest_autoloaded_options ) ) : ?>
                 <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
                     <thead>
