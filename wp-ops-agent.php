@@ -63,6 +63,9 @@ function wpoa_admin_page_callback() {
         LIMIT 20
     " );
 
+     // Fetch Scheduled Jobs (Cron Arrays)
+    $cron_array = _get_cron_array();
+
     ?>
     <div class="wrap">
         <h1>WP Ops Agent Dashboard</h1>
@@ -111,6 +114,68 @@ function wpoa_admin_page_callback() {
                 </table>
             <?php else : ?>
                 <p>No autoloaded options found.</p>
+            <?php endif; ?>
+        </div>
+
+        <div class="card" style="max-width: 900px; margin-top: 20px;">
+            <h2><?php esc_html_e( 'Scheduled Cron Jobs Execution Tree', 'wp-ops-agent' ); ?></h2>
+            <p class="description"><?php esc_html_e( 'Hierarchical breakdown of registered background events waiting to run.', 'wp-ops-agent' ); ?></p>
+            
+            <?php if ( ! empty( $cron_array ) ) : ?>
+                <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 25%;"><strong><?php esc_html_e( 'Scheduled Timestamp', 'wp-ops-agent' ); ?></strong></th>
+                            <th style="width: 25%;"><strong><?php esc_html_e( 'Hook Name', 'wp-ops-agent' ); ?></strong></th>
+                            <th style="width: 25%;"><strong><?php esc_html_e( 'Event Identifier (MD5 Hash)', 'wp-ops-agent' ); ?></strong></th>
+                            <th style="width: 25%;"><strong><?php esc_html_e( 'Schedule & Arguments', 'wp-ops-agent' ); ?></strong></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php 
+                        foreach ( $cron_array as $timestamp => $hooks ) : 
+                            // Convert UTC timestamp to local human-readable time configured in WordPress settings
+                            $date_format     = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+                            $readable_time   = wp_date( $date_format, $timestamp );
+                            $time_diff       = human_time_diff( current_time( 'timestamp', 1 ), $timestamp );
+                            $is_past         = $timestamp < current_time( 'timestamp', 1 );
+                            $time_context    = $is_past ? sprintf( __( '(%s ago)', 'wp-ops-agent' ), $time_diff ) : sprintf( __( '(in %s)', 'wp-ops-agent' ), $time_diff );
+                            
+                            foreach ( $hooks as $hook_name => $events ) : 
+                                foreach ( $events as $event_key => $event_details ) : 
+                                    $schedule  = ! empty( $event_details['schedule'] ) ? $event_details['schedule'] : __( 'Non-repeating (Single)', 'wp-ops-agent' );
+                                    $arguments = ! empty( $event_details['args'] ) ? wp_json_encode( $event_details['args'] ) : '[]';
+                                    ?>
+                                    <tr>
+                                        <!-- Scheduled Timestamp Column -->
+                                        <td>
+                                            <strong><?php echo esc_html( $readable_time ); ?></strong><br>
+                                            <small style="color: <?php echo $is_past ? '#d63638' : '#666'; ?>;">
+                                                <?php echo esc_html( $time_context ); ?>
+                                            </small>
+                                        </td>
+                                        
+                                        <!-- Hook Name Column -->
+                                        <td><code style="color: #2271b1; font-weight: 600;"><?php echo esc_html( $hook_name ); ?></code></td>
+                                        
+                                        <!-- Event Identifier Column -->
+                                        <td><small style="font-family: monospace; color: #50575e;"><?php echo esc_html( $event_key ); ?></small></td>
+                                        
+                                        <!-- Schedule and Arguments Column -->
+                                        <td>
+                                            <strong><?php esc_html_e( 'Recurrence:', 'wp-ops-agent' ); ?></strong> <code><?php echo esc_html( $schedule ); ?></code><br>
+                                            <strong><?php esc_html_e( 'Args:', 'wp-ops-agent' ); ?></strong> <small style="font-family: monospace;"><?php echo esc_html( $arguments ); ?></small>
+                                        </td>
+                                    </tr>
+                                <?php 
+                                endforeach;
+                            endforeach;
+                        endforeach; 
+                        ?>
+                    </tbody>
+                </table>
+            <?php else : ?>
+                <p><?php esc_html_e( 'No scheduled cron jobs found.', 'wp-ops-agent' ); ?></p>
             <?php endif; ?>
         </div>
     </div>
