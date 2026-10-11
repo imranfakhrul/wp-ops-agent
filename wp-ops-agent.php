@@ -7,7 +7,7 @@
  * Version: 1.0.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
- * Author: Fakhrul
+ * Author: Md Fakhrul Islam
  * Author URI: https://mdfakhrulislam.com/
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -49,6 +49,11 @@ function wpoa_admin_page_callback() {
     // Count the number of autoloaded options in the database.
     $autoload_option_count = $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->options WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')" );
 
+    // Calculate the total size of autoloaded options in kilobytes.
+    $autoload_option_size = $wpdb->get_var( "SELECT SUM(LENGTH(option_value)) FROM $wpdb->options WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')" );
+    
+    $total_size_kb = round( $autoload_option_size / 1024, 2 );
+
     // Fetch the top 5 largest autoloaded options.
     $largest_autoloaded_options = $wpdb->get_results( "
         SELECT option_name, autoload, ROUND(LENGTH(option_value) / 1024, 2) as size_kb
@@ -57,8 +62,6 @@ function wpoa_admin_page_callback() {
         ORDER BY size_kb DESC
         LIMIT 20
     " );
-
-    $total_size_kb = array_sum( wp_list_pluck( $largest_autoloaded_options, 'size_kb' ) );
 
     ?>
     <div class="wrap">
