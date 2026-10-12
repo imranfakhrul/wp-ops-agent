@@ -8,6 +8,8 @@ inspect autoloaded options without changing them.
 - Count autoloaded options.
 - Calculate their combined stored value size.
 - List the 20 largest options, ordered by byte size, with their autoload status.
+- List scheduled cron event instances with next-run dates, recurrence and
+  Due/Scheduled status; show total and due counts.
 - Restrict the report to users with the `manage_options` capability.
 
 The queries run when an authorised user opens the report. There is no
@@ -89,5 +91,16 @@ user. The dashboard was also checked against a supplied screenshot.
 The plugin declares WordPress 6.0+ and PHP 7.4+. Those minimum versions have
 not been tested; the checks above apply to the local installation.
 
-Cron diagnostics, REST endpoints, WP-CLI commands, fixes, undo, distributed
-locks and CI are not implemented yet.
+Duplicate-cron detection, REST endpoints, WP-CLI commands, fixes, undo,
+distributed locks and CI are not implemented yet.
+
+## Cron report checks — 12 October 2026
+
+Temporary in-memory fixtures verified three event instances (two due),
+including multiple events under one hook and timestamp. Summary counts and
+row statuses agreed. An event scheduled for the current timestamp was due.
+Earliest-first sorting, empty and malformed data, HTML escaping and
+unauthenticated access checks passed. Stored scheduled jobs were not changed.
+
+Cron storage is an internal WordPress structure; its reader is isolated in
+`wpoa_get_scheduled_events()` so compatibility changes have one place to go.
