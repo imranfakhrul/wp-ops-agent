@@ -80,20 +80,28 @@ add_action( 'admin_post_wpoa_disable_autoload', 'wpoa_handle_disable_autoload' )
  * @param bool   $changed     True if autoload was switched off, false if it was already off.
  */
 function wpoa_record_fix( $option_name, $changed ) {
-    $history = get_option( 'wpoa_fix_history', array() );
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'wpoa_fix_history';
 
-    if ( ! is_array( $history ) ) {
-        $history = array();
-    }
-
-    $history[] = array(
-        'option_name' => $option_name,
-        'changed'     => $changed,
-        'timestamp'   => time(),
-        'user'        => get_current_user_id(),
+    $inserted = $wpdb->insert(
+        $table_name,
+        array(
+            'option_name' => $option_name,
+            'changed'     => $changed,
+            'timestamp'   => time(),
+            'user'        => get_current_user_id(),
+        ),
+        array(
+            '%s',
+            '%d',
+            '%d',
+            '%d',
+        )
     );
 
-    update_option( 'wpoa_fix_history', $history, false );
+    if ( false === $inserted ) {
+        error_log( $wpdb->last_error );
+    }
 }
 
 /**
@@ -304,3 +312,22 @@ function wpoa_admin_page_callback() {
     </div>
     <?php
 }
+
+function wpoa_activate_plugin() {
+    // Add a new database table to store the fix history.
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'wpoa_fix_history';
+    $charset_collate = $wpdb->get_charset_collate();
+    
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta( "CREATE TABLE $table_name (
+        id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+        option_name VARCHAR(255) NOT NULL,
+        changed TINYINT(1) NOT NULL,
+        timestamp BIGINT(20) NOT NULL,
+        user BIGINT(20) UNSIGNED NOT NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;" );
+}
+
+register_activation_hook( __FILE__, 'wpoa_activate_plugin' );
