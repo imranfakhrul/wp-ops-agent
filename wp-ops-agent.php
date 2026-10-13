@@ -35,6 +35,68 @@ function wpoa_register_admin_page() {
 add_action( 'admin_menu', 'wpoa_register_admin_page' );
 
 /**
+ * Handle the Fix button: turn autoload off for one option.
+ */
+function wpoa_handle_disable_autoload() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        wp_die( esc_html__( 'You are not allowed to do this.', 'wp-ops-agent' ), 403 );
+    }
+
+    $option_name = isset( $_POST['option_name'] ) ? sanitize_text_field( wp_unslash( $_POST['option_name'] ) ) : '';
+    check_admin_referer( 'wpoa_disable_autoload_' . $option_name );
+
+    if ( '' === $option_name || false === get_option( $option_name, false ) ) {
+        wp_die( esc_html__( 'That option does not exist.', 'wp-ops-agent' ), 400 );
+    }
+
+    // wp_set_option_autoload() arrived in WordPress 6.4; it also clears the alloptions cache.
+    if ( function_exists( 'wp_set_option_autoload' ) ) {
+        $changed = wp_set_option_autoload( $option_name, false );
+    } else {
+        global $wpdb;
+        $changed = (bool) $wpdb->update( $wpdb->options, array( 'autoload' => 'no' ), array( 'option_name' => $option_name ) );
+        wp_cache_delete( 'alloptions', 'options' );
+    }
+
+    wpoa_record_fix( $option_name, $changed );
+
+    wp_safe_redirect( add_query_arg(
+        array(
+            'page'       => 'wp-ops-agent',
+            'wpoa_fixed' => rawurlencode( $option_name ),
+        ),
+        admin_url( 'tools.php' )
+    ) );
+    exit;
+}
+add_action( 'admin_post_wpoa_disable_autoload', 'wpoa_handle_disable_autoload' );
+
+/**
+ * Record one fix in the fix history.
+ *
+ * Called on every Fix click, whether or not the autoload value changed.
+ *
+ * @param string $option_name The option the fix was applied to.
+ * @param bool   $changed     True if autoload was switched off, false if it was already off.
+ */
+function wpoa_record_fix( $option_name, $changed ) {
+    $history = get_option( 'wpoa_fix_history', array() );
+
+    if ( ! is_array( $history ) ) {
+        $history = array();
+    }
+
+    $history[] = array(
+        'option_name' => $option_name,
+        'changed'     => $changed,
+        'timestamp'   => time(),
+        'user'        => get_current_user_id(),
+    );
+
+    update_option( 'wpoa_fix_history', $history, false );
+}
+
+/**
  * Read and flatten stored cron events without changing the schedule.
  *
  * WordPress's internal cron structure is handled only in this function.
@@ -125,7 +187,13 @@ function wpoa_admin_page_callback() {
     <div class="wrap">
         <h1>WP Ops Agent Dashboard</h1>
         <p>Performance report for your autoloaded WordPress configuration values.</p>
-        
+
+        <?php if ( isset( $_GET['wpoa_fixed'] ) ) : ?>
+            <div class="notice notice-success is-dismissible">
+                <p><?php echo esc_html( sprintf( __( 'Autoload turned off for %s.', 'wp-ops-agent' ), sanitize_text_field( wp_unslash( $_GET['wpoa_fixed'] ) ) ) ); ?></p>
+            </div>
+        <?php endif; ?>
+
         <!-- Summary Section -->
         <div class="card" style="max-width: 800px; margin-top: 20px;">
             <h2>Autoloaded Options Summary</h2>
@@ -148,9 +216,10 @@ function wpoa_admin_page_callback() {
                 <table class="wp-list-table widefat fixed striped" style="margin-top: 15px;">
                     <thead>
                         <tr>
-                            <th style="width: 60%;"><strong>Option Name</strong></th>
-                            <th style="width: 20%;"><strong>Autoload Status</strong></th>
-                            <th style="width: 20%;"><strong>Size (KiB)</strong></th>
+                            <th style="width: 50%;"><strong>Option Name</strong></th>
+                            <th style="width: 15%;"><strong>Autoload Status</strong></th>
+                            <th style="width: 15%;"><strong>Size (KiB)</strong></th>
+                            <th style="width: 20%;"><strong>Action</strong></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -163,6 +232,14 @@ function wpoa_admin_page_callback() {
                                     </span>
                                 </td>
                                 <td><?php echo esc_html( number_format_i18n( $option->size_kb, 2 ) ); ?> KiB</td>
+                                <td>
+                                    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+                                        <input type="hidden" name="action" value="wpoa_disable_autoload">
+                                        <input type="hidden" name="option_name" value="<?php echo esc_attr( $option->option_name ); ?>">
+                                        <?php wp_nonce_field( 'wpoa_disable_autoload_' . $option->option_name ); ?>
+                                        <?php submit_button( __( 'Fix: stop autoloading', 'wp-ops-agent' ), 'secondary small', 'submit', false ); ?>
+                                    </form>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
