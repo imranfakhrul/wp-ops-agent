@@ -18,6 +18,7 @@ services:
       - WORDPRESS_SECURE_AUTH_SALT=${WORDPRESS_SECURE_AUTH_SALT}
       - WORDPRESS_LOGGED_IN_SALT=${WORDPRESS_LOGGED_IN_SALT}
       - WORDPRESS_NONCE_SALT=${WORDPRESS_NONCE_SALT}
+      - WORDPRESS_CONFIG_EXTRA=define( 'DISABLE_WP_CRON', true );
     volumes:
       - wordpress_data:/var/www/html
       - ./:/var/www/html/wp-content/plugins/wp-ops-agent
@@ -44,6 +45,13 @@ services:
       MYSQL_PASSWORD: wordpress
     volumes:
       - db_data:/var/lib/mysql
+
+  cron:
+    image: curlimages/curl:latest
+    restart: always
+    command: sh -c "while true; do curl -sS http://nginx_lb/wp-cron.php; sleep 60; done"
+    depends_on:
+      - nginx_lb
 
 volumes:
   wordpress_data:
