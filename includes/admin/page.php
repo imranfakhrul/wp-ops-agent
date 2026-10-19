@@ -50,6 +50,12 @@ function wpoa_render_scan_header() {
     <?php endif; ?>
 
     <div class="card" style="max-width: 800px; margin-top: 20px;">
+        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+            <input type="hidden" name="action" value="wpoa_run_scan">
+            <?php wp_nonce_field( 'wpoa_run_scan' ); ?>
+            <?php submit_button( __( 'Run scan', 'wp-ops-agent' ), 'primary', 'submit', false ); ?>
+        </form>
+        
         <?php if ( is_array( $report ) && isset( $report['finished_at'] ) ) :
             $user      = get_userdata( isset( $report['user_id'] ) ? (int) $report['user_id'] : 0 );
             $user_name = $user ? $user->display_name : __( 'unknown user', 'wp-ops-agent' );
@@ -69,12 +75,6 @@ function wpoa_render_scan_header() {
         <?php else : ?>
             <p><?php esc_html_e( 'No scan yet. Click Run scan.', 'wp-ops-agent' ); ?></p>
         <?php endif; ?>
-
-        <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-            <input type="hidden" name="action" value="wpoa_run_scan">
-            <?php wp_nonce_field( 'wpoa_run_scan' ); ?>
-            <?php submit_button( __( 'Run scan', 'wp-ops-agent' ), 'primary', 'submit', false ); ?>
-        </form>
     </div>
     <?php
 }
