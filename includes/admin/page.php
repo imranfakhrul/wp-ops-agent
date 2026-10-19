@@ -35,6 +35,10 @@ function wpoa_render_scan_header() {
         <div class="notice notice-success is-dismissible">
             <p><?php esc_html_e( 'Scan finished. The report below is up to date.', 'wp-ops-agent' ); ?></p>
         </div>
+    <?php elseif ( isset( $_GET['wpoa_scan_scheduled'] ) ) : ?>
+        <div class="notice notice-info is-dismissible">
+            <p><?php esc_html_e( 'Scan scheduled for background execution.', 'wp-ops-agent' ); ?></p>
+        </div>
     <?php elseif ( isset( $_GET['wpoa_scan_busy'] ) ) : ?>
         <div class="notice notice-warning is-dismissible">
             <p><?php esc_html_e( 'Another scan is already running. Please wait a few minutes and try again.', 'wp-ops-agent' ); ?></p>

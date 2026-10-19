@@ -97,14 +97,13 @@ function wpoa_unlock_scan( string $lock_value ) {
  *
  * @return array The report: autoload figures, cron figures, timing, user.
  */
-function wpoa_run_scan() {
+function wpoa_run_scan( $user_id = null ) {
     $lock_value = wpoa_lock_scan();
 
     try {
         global $wpdb;
         
         $started_at = microtime( true );
-        $user_id    = get_current_user_id();
         wpoa_log_scan( 'start', $user_id );
     
         if ( defined( 'WPOA_TEST_SCAN_SECONDS' ) ) {
@@ -231,3 +230,23 @@ function wpoa_get_scheduled_events() {
 
     return $rows;
 }
+
+function wpoa_run_scan_action( $user_id = null ) {
+    try {
+        wpoa_save_scan_report( wpoa_run_scan( $user_id ) );
+    } catch ( Throwable $e ) {
+        $code = $e->getCode();
+
+        if ( WPOA_SCAN_BUSY !== $code ) {
+            wpoa_log_scan( 'error', get_current_user_id() );
+            wpoa_log_scan_error( $e );
+        } else {
+            wpoa_log_scan( 'busy', get_current_user_id() );
+            wpoa_log_scan_error( $e );
+        }
+
+        // The action failed, so it should reach out to ActionScheduler.
+        throw $e;
+    }
+}
+add_action( 'as_wpoa_run_scan', 'wpoa_run_scan_action' );

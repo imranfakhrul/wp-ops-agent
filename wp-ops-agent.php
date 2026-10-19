@@ -24,6 +24,9 @@ define( 'WPOA_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 if ( ! defined( 'WPOA_SCAN_LOCK_TTL' ) ) {
     define( 'WPOA_SCAN_LOCK_TTL', 300 );
 }
+if ( ! defined( 'WPOA_TEST_SCAN_SECONDS' ) ) {
+    define( 'WPOA_TEST_SCAN_SECONDS', 10 );
+}
 define( 'WPOA_SCAN_BUSY', 9 );
 
 require_once WPOA_PLUGIN_DIR . 'includes/helpers.php';

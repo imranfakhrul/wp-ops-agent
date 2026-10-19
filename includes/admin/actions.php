@@ -60,41 +60,34 @@ function wpoa_handle_run_scan() {
 
     check_admin_referer( 'wpoa_run_scan' );
 
-    try {
-        wpoa_save_scan_report( wpoa_run_scan() );
+    if ( function_exists( 'as_enqueue_async_action' ) ) {
+        // Use Action Scheduler to run the scan in the background.
+        $scheduled = as_enqueue_async_action( 'as_wpoa_run_scan', array( 'user_id' => get_current_user_id() ), 'wp-ops-agent' );
 
-        wp_safe_redirect( add_query_arg(
-            array(
-                'page'         => 'wp-ops-agent',
-                'wpoa_scanned' => 1,
-            ),
-            admin_url( 'tools.php' )
-        ) );
-        exit;
-    } catch ( Throwable $e ) {
-        $code = $e->getCode();
-
-        if ( WPOA_SCAN_BUSY !== $code ) {
-            wpoa_log_scan( 'error', get_current_user_id() );
-            wpoa_log_scan_error( $e );
-
+        if ( $scheduled ) {
             wp_safe_redirect( add_query_arg(
                 array(
                     'page'         => 'wp-ops-agent',
-                    'wpoa_scan_error' => 1
+                    'wpoa_scan_scheduled' => 1,
+                ),
+                admin_url( 'tools.php' )
+            ) );
+            exit;
+        } else {
+            wp_safe_redirect( add_query_arg(
+                array(
+                    'page'         => 'wp-ops-agent',
+                    'wpoa_scan_error' => 1,
                 ),
                 admin_url( 'tools.php' )
             ) );
             exit;
         }
-
-        wpoa_log_scan( 'busy', get_current_user_id() );
-        wpoa_log_scan_error( $e );
-
+    } else {
         wp_safe_redirect( add_query_arg(
             array(
                 'page'         => 'wp-ops-agent',
-                'wpoa_scan_busy' => 1
+                'wpoa_scan_error' => 1,
             ),
             admin_url( 'tools.php' )
         ) );
@@ -103,3 +96,4 @@ function wpoa_handle_run_scan() {
 
 }
 add_action( 'admin_post_wpoa_run_scan', 'wpoa_handle_run_scan' );
+
