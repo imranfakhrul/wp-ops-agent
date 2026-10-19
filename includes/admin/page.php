@@ -35,6 +35,14 @@ function wpoa_render_scan_header() {
         <div class="notice notice-success is-dismissible">
             <p><?php esc_html_e( 'Scan finished. The report below is up to date.', 'wp-ops-agent' ); ?></p>
         </div>
+    <?php elseif ( isset( $_GET['wpoa_scan_busy'] ) ) : ?>
+        <div class="notice notice-warning is-dismissible">
+            <p><?php esc_html_e( 'Another scan is already running. Please wait a few minutes and try again.', 'wp-ops-agent' ); ?></p>
+        </div>
+    <?php elseif ( isset( $_GET['wpoa_scan_error'] ) ) : ?>
+        <div class="notice notice-error is-dismissible">
+            <p><?php esc_html_e( 'An error occurred while running the scan.', 'wp-ops-agent' ); ?></p>
+        </div>
     <?php endif; ?>
 
     <div class="card" style="max-width: 800px; margin-top: 20px;">

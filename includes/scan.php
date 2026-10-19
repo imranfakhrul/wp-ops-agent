@@ -19,6 +19,75 @@ function wpoa_save_scan_report( $report ) {
     update_option( 'wpoa_last_report', $report, false );
 }
 
+function wpoa_lock_scan() {
+    global $wpdb;
+
+    $uuid = wp_generate_uuid4();
+    $time = time();
+    $user_id = get_current_user_id();
+    $lock_key = 'wpoa_scan_lock';
+    $lock_value = "$uuid|$time|$user_id";
+
+    $lock_acquired = $wpdb->query( $wpdb->prepare(
+        "INSERT IGNORE INTO $wpdb->options (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
+        $lock_key,
+        $lock_value
+    ) );
+
+    if ( ! $lock_acquired ) {
+        $locked_row = $wpdb->get_row( $wpdb->prepare(
+            "SELECT option_value FROM $wpdb->options WHERE option_name = %s",
+            $lock_key
+        ) );
+
+        if ( empty( $locked_row ) ) {
+            // Try to acquire the lock again.
+            $lock_acquired = $wpdb->query( $wpdb->prepare(
+                "INSERT IGNORE INTO $wpdb->options (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
+                $lock_key,
+                $lock_value
+            ) );
+        }
+        
+        if ( isset( $locked_row->option_value ) ) {
+            list( , $locked_time, ) = explode( '|', $locked_row->option_value );
+
+            if ( ( time() - (int) $locked_time ) > WPOA_SCAN_LOCK_TTL ) {
+                // The lock is stale; delete it and try again.
+                $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM $wpdb->options WHERE option_name = %s AND option_value = %s",
+                    $lock_key,
+                    $locked_row->option_value
+                ) );
+
+                // Try to acquire the lock again.
+                $lock_acquired = $wpdb->query( $wpdb->prepare(
+                    "INSERT IGNORE INTO $wpdb->options (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
+                    $lock_key,
+                    $lock_value
+                ) );
+            }
+        }
+    }
+
+    if ( ! $lock_acquired ) {
+        throw new Exception( esc_html__( 'Another scan is already running. Please wait a few minutes and try again.', 'wp-ops-agent' ), WPOA_SCAN_BUSY );
+    }
+
+    return $lock_value;
+}
+
+function wpoa_unlock_scan( string $lock_value ) {
+    global $wpdb;
+    $lock_key = 'wpoa_scan_lock';
+
+    $wpdb->query( $wpdb->prepare(
+        "DELETE FROM $wpdb->options WHERE option_name = %s AND option_value = %s",
+        $lock_key,
+        $lock_value
+    ) );
+}
+
 /**
  * Run a full scan and return the report. Does not save it.
  *
@@ -29,61 +98,57 @@ function wpoa_save_scan_report( $report ) {
  * @return array The report: autoload figures, cron figures, timing, user.
  */
 function wpoa_run_scan() {
-    global $wpdb;
+    $lock_value = wpoa_lock_scan();
 
-    $started_at = microtime( true );
-    $user_id    = get_current_user_id();
-    wpoa_log_scan( 'start', $user_id );
-
-    if ( defined( 'WPOA_TEST_SCAN_SECONDS' ) ) {
-        sleep( (int) WPOA_TEST_SCAN_SECONDS );
-    }
-
-    // Count the number of autoloaded options in the database.
-    $autoload_option_count = $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->options WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')" );
-
-    // Calculate the stored option-value size in kibibytes (1 KiB = 1,024 bytes).
-    $autoload_option_size = $wpdb->get_var( "SELECT SUM(LENGTH(option_value)) FROM $wpdb->options WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')" );
+    try {
+        global $wpdb;
+        
+        $started_at = microtime( true );
+        $user_id    = get_current_user_id();
+        wpoa_log_scan( 'start', $user_id );
     
-    $total_size_kb = round( $autoload_option_size / 1024, 2 );
-
-    // Fetch the top 20 largest autoloaded options.
-    $largest_autoloaded_options = $wpdb->get_results( "
-        SELECT option_name, autoload, ROUND(LENGTH(option_value) / 1024, 2) as size_kb
-        FROM $wpdb->options
-        WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')
-        ORDER BY LENGTH(option_value) DESC
-        LIMIT 20
-    " );
-
-    $cron = wpoa_scheduled_events( (int) $started_at );
-
-    $finished_at = microtime( true );
-    wpoa_log_scan( 'end', $user_id );
-
-    return array(
-        'autoload_option_count'      => (int) $autoload_option_count,
-        'total_size_kb'              => $total_size_kb,
-        'largest_autoloaded_options' => $largest_autoloaded_options,
-        'scheduled_events'           => $cron['scheduled_events'],
-        'total_jobs_count'           => $cron['total_jobs_count'],
-        'due_jobs_count'             => $cron['due_jobs_count'],
-        'current_time'               => $cron['current_time'],
-        'started_at'                 => (int) $started_at,
-        'finished_at'                => (int) $finished_at,
-        'duration_ms'                => (int) round( ( $finished_at - $started_at ) * 1000 ),
-        'user_id'                    => $user_id,
-    );
-}
-
-/**
- * Write one witness line for a scan to the PHP error log.
- *
- * @param string $stage   'start' or 'end'.
- * @param int    $user_id The user who ran the scan; 0 for WP-CLI or a background job.
- */
-function wpoa_log_scan( $stage, $user_id ) {
-    error_log( sprintf( 'wpoa scan %s user=%d pid=%d server=%s', $stage, $user_id, getmypid(), gethostname() ) );
+        if ( defined( 'WPOA_TEST_SCAN_SECONDS' ) ) {
+            sleep( (int) WPOA_TEST_SCAN_SECONDS );
+        }
+    
+        // Count the number of autoloaded options in the database.
+        $autoload_option_count = $wpdb->get_var( "SELECT COUNT(*) FROM $wpdb->options WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')" );
+    
+        // Calculate the stored option-value size in kibibytes (1 KiB = 1,024 bytes).
+        $autoload_option_size = $wpdb->get_var( "SELECT SUM(LENGTH(option_value)) FROM $wpdb->options WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')" );
+        
+        $total_size_kb = round( $autoload_option_size / 1024, 2 );
+    
+        // Fetch the top 20 largest autoloaded options.
+        $largest_autoloaded_options = $wpdb->get_results( "
+            SELECT option_name, autoload, ROUND(LENGTH(option_value) / 1024, 2) as size_kb
+            FROM $wpdb->options
+            WHERE autoload IN ('yes', 'on', 'auto-on', 'auto')
+            ORDER BY LENGTH(option_value) DESC
+            LIMIT 20
+        " );
+    
+        $cron = wpoa_scheduled_events( (int) $started_at );
+    
+        $finished_at = microtime( true );
+        wpoa_log_scan( 'end', $user_id );
+    
+        return array(
+            'autoload_option_count'      => (int) $autoload_option_count,
+            'total_size_kb'              => $total_size_kb,
+            'largest_autoloaded_options' => $largest_autoloaded_options,
+            'scheduled_events'           => $cron['scheduled_events'],
+            'total_jobs_count'           => $cron['total_jobs_count'],
+            'due_jobs_count'             => $cron['due_jobs_count'],
+            'current_time'               => $cron['current_time'],
+            'started_at'                 => (int) $started_at,
+            'finished_at'                => (int) $finished_at,
+            'duration_ms'                => (int) round( ( $finished_at - $started_at ) * 1000 ),
+            'user_id'                    => $user_id,
+        );
+    } finally {
+        wpoa_unlock_scan( $lock_value );
+    }
 }
 
 /**
